@@ -10,7 +10,7 @@ import { StockStatusBadge } from '@/components/StockStatusBadge';
 import { QuickActions } from '@/components/QuickActions';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { ProductDetailDialog } from '@/components/ProductDetailDialog';
-import { Package, AlertTriangle, AlertCircle, DollarSign, TrendingDown, ShoppingCart, ArrowUpRight, Bell } from 'lucide-react';
+import { Package, AlertTriangle, AlertCircle, Euro, TrendingDown, ShoppingCart, ArrowUpRight, Bell } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -42,7 +42,7 @@ export default function Dashboard() {
     { title: 'Totaal Producten', value: String(total), icon: Package, color: 'text-primary' },
     { title: 'Lage Voorraad', value: String(lowCount), icon: AlertTriangle, color: 'text-warning', link: '/products?status=low' },
     { title: 'Kritieke Voorraad', value: String(criticalCount), icon: AlertCircle, color: 'text-destructive', link: '/products?status=critical' },
-    { title: 'Totale Voorraadwaarde', value: `€${totalValue.toFixed(0)}`, icon: DollarSign, color: 'text-muted-foreground' },
+    { title: 'Totale Voorraadwaarde', value: `€${totalValue.toFixed(0)}`, icon: Euro, color: 'text-muted-foreground' },
   ];
 
   return (
