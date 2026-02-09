@@ -7,6 +7,8 @@ import { Coffee, Menu, X, LogOut } from 'lucide-react';
 const navItems = [
   { label: 'Dashboard', to: '/' },
   { label: 'Producten', to: '/products' },
+  { label: 'Leveranciers', to: '/leveranciers' },
+  { label: 'Bestellingen', to: '/bestellingen' },
   { label: 'Activiteit', to: '/activiteit' },
 ];
 

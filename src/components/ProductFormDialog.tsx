@@ -10,19 +10,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useCreateProduct, useUpdateProduct } from '@/hooks/useProducts';
+import { useSuppliers } from '@/hooks/useSuppliers';
 import type { Product } from '@/types/product';
 
 const productSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(200),
+  name: z.string().trim().min(1, 'Naam is verplicht').max(200),
   description: z.string().max(1000).optional(),
   origin: z.string().max(100).optional(),
   roast_level: z.enum(['light', 'medium', 'dark']),
   flavor_notes: z.string().max(500).optional(),
-  current_stock: z.coerce.number().min(0, 'Must be >= 0'),
+  current_stock: z.coerce.number().min(0, 'Moet >= 0 zijn'),
   minimum_stock: z.coerce.number().min(0),
   critical_stock: z.coerce.number().min(0),
   cost_price: z.coerce.number().min(0).optional().or(z.literal('')),
   selling_price: z.coerce.number().min(0).optional().or(z.literal('')),
+  supplier_id: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof productSchema>;
@@ -37,6 +39,7 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
   const { toast } = useToast();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const { data: suppliers } = useSuppliers();
   const isEditing = !!product;
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FormValues>({
@@ -53,12 +56,14 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
           critical_stock: product.critical_stock,
           cost_price: product.cost_price ?? '',
           selling_price: product.selling_price ?? '',
+          supplier_id: product.supplier_id ?? '',
         }
       : {
           roast_level: 'medium',
           current_stock: 0,
           minimum_stock: 10,
           critical_stock: 5,
+          supplier_id: '',
         },
   });
 
@@ -70,20 +75,21 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
       description: values.description || null,
       origin: values.origin || null,
       flavor_notes: values.flavor_notes || null,
+      supplier_id: values.supplier_id || null,
     };
 
     try {
       if (isEditing) {
         await updateProduct.mutateAsync({ id: product.id, ...payload });
-        toast({ title: 'Product updated' });
+        toast({ title: 'Product bijgewerkt' });
       } else {
         await createProduct.mutateAsync(payload as any);
-        toast({ title: 'Product created' });
+        toast({ title: 'Product toegevoegd' });
       }
       reset();
       onOpenChange(false);
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      toast({ title: 'Fout', description: err.message, variant: 'destructive' });
     }
   };
 
@@ -91,27 +97,27 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Product Bewerken' : 'Product Toevoegen'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="name">Name *</Label>
+            <Label htmlFor="name">Naam *</Label>
             <Input id="name" {...register('name')} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Beschrijving</Label>
             <Textarea id="description" {...register('description')} rows={2} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="origin">Origin</Label>
+              <Label htmlFor="origin">Herkomst</Label>
               <Input id="origin" {...register('origin')} />
             </div>
             <div className="space-y-1">
-              <Label>Roast Level *</Label>
+              <Label>Branding *</Label>
               <Select value={watch('roast_level')} onValueChange={(v) => setValue('roast_level', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -124,41 +130,54 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="flavor_notes">Flavor Notes</Label>
+            <Label>Leverancier</Label>
+            <Select value={watch('supplier_id') ?? ''} onValueChange={(v) => setValue('supplier_id', v === 'none' ? '' : v)}>
+              <SelectTrigger><SelectValue placeholder="Selecteer leverancier..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Geen leverancier</SelectItem>
+                {suppliers?.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="flavor_notes">Smaaknotities</Label>
             <Input id="flavor_notes" {...register('flavor_notes')} />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="current_stock">Stock (kg) *</Label>
+              <Label htmlFor="current_stock">Voorraad (kg) *</Label>
               <Input id="current_stock" type="number" step="0.01" {...register('current_stock')} />
               {errors.current_stock && <p className="text-sm text-destructive">{errors.current_stock.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="minimum_stock">Min Stock *</Label>
+              <Label htmlFor="minimum_stock">Min. Voorraad *</Label>
               <Input id="minimum_stock" type="number" step="0.01" {...register('minimum_stock')} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="critical_stock">Critical *</Label>
+              <Label htmlFor="critical_stock">Kritiek *</Label>
               <Input id="critical_stock" type="number" step="0.01" {...register('critical_stock')} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="cost_price">Cost Price (€)</Label>
+              <Label htmlFor="cost_price">Inkoopprijs (€)</Label>
               <Input id="cost_price" type="number" step="0.01" {...register('cost_price')} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="selling_price">Selling Price (€)</Label>
+              <Label htmlFor="selling_price">Verkoopprijs (€)</Label>
               <Input id="selling_price" type="number" step="0.01" {...register('selling_price')} />
             </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
             <Button type="submit" disabled={createProduct.isPending || updateProduct.isPending}>
-              {isEditing ? 'Save Changes' : 'Add Product'}
+              {isEditing ? 'Opslaan' : 'Toevoegen'}
             </Button>
           </div>
         </form>
