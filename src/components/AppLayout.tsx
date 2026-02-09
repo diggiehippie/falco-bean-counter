@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Bestellingen', to: '/bestellingen' },
   { label: 'Rapporten', to: '/rapporten' },
   { label: 'Activiteit', to: '/activiteit' },
+  { label: 'WooCommerce', to: '/woocommerce' },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

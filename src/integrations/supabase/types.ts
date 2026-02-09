@@ -246,6 +246,7 @@ export type Database = {
           supplier_id: string | null
           unit: string | null
           updated_at: string | null
+          woocommerce_product_id: number | null
         }
         Insert: {
           cost_price?: number | null
@@ -266,6 +267,7 @@ export type Database = {
           supplier_id?: string | null
           unit?: string | null
           updated_at?: string | null
+          woocommerce_product_id?: number | null
         }
         Update: {
           cost_price?: number | null
@@ -286,6 +288,7 @@ export type Database = {
           supplier_id?: string | null
           unit?: string | null
           updated_at?: string | null
+          woocommerce_product_id?: number | null
         }
         Relationships: [
           {
@@ -442,6 +445,102 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_log: {
+        Row: {
+          direction: string | null
+          error_details: Json | null
+          error_message: string | null
+          id: string
+          new_value: string | null
+          old_value: string | null
+          product_id: string | null
+          status: string | null
+          sync_type: string
+          synced_at: string | null
+          woocommerce_order_id: number | null
+          woocommerce_product_id: number | null
+        }
+        Insert: {
+          direction?: string | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          product_id?: string | null
+          status?: string | null
+          sync_type: string
+          synced_at?: string | null
+          woocommerce_order_id?: number | null
+          woocommerce_product_id?: number | null
+        }
+        Update: {
+          direction?: string | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          product_id?: string | null
+          status?: string | null
+          sync_type?: string
+          synced_at?: string | null
+          woocommerce_order_id?: number | null
+          woocommerce_product_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "stock_status_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      woocommerce_settings: {
+        Row: {
+          auto_import_enabled: boolean | null
+          consumer_key: string
+          consumer_secret: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_import_at: string | null
+          store_url: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          auto_import_enabled?: boolean | null
+          consumer_key: string
+          consumer_secret: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_import_at?: string | null
+          store_url: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          auto_import_enabled?: boolean | null
+          consumer_key?: string
+          consumer_secret?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_import_at?: string | null
+          store_url?: string
+          webhook_secret?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       stock_status_view: {
@@ -465,6 +564,7 @@ export type Database = {
           supplier_id: string | null
           unit: string | null
           updated_at: string | null
+          woocommerce_product_id: number | null
         }
         Insert: {
           cost_price?: number | null
@@ -486,6 +586,7 @@ export type Database = {
           supplier_id?: string | null
           unit?: string | null
           updated_at?: string | null
+          woocommerce_product_id?: number | null
         }
         Update: {
           cost_price?: number | null
@@ -507,6 +608,7 @@ export type Database = {
           supplier_id?: string | null
           unit?: string | null
           updated_at?: string | null
+          woocommerce_product_id?: number | null
         }
         Relationships: [
           {

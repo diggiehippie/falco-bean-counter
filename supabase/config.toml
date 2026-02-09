@@ -2,3 +2,9 @@ project_id = "iqftihslferjdqnrpswz"
 
 [functions.chat]
 verify_jwt = false
+
+[functions.woocommerce-sync]
+verify_jwt = false
+
+[functions.woocommerce-webhook]
+verify_jwt = false
