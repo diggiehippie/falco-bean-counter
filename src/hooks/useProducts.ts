@@ -44,9 +44,24 @@ export function useDeleteProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('products').update({ is_active: false }).eq('id', id);
+      const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+}
+
+export function usePackagingSizes() {
+  return useQuery({
+    queryKey: ['packaging_sizes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('packaging_sizes')
+        .select('*')
+        .eq('is_active', true)
+        .order('weight_grams', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 }
