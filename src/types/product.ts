@@ -1,5 +1,7 @@
 export type RoastLevel = 'light' | 'medium' | 'dark';
 export type StockStatus = 'ok' | 'low' | 'critical';
+export type MovementType = 'in' | 'out' | 'adjustment';
+export type MovementSource = 'supplier' | 'woocommerce' | 'manual' | 'damaged' | 'sample' | 'other';
 
 export interface Product {
   id: string;
@@ -21,4 +23,23 @@ export interface Product {
 
 export interface StockStatusView extends Product {
   stock_status: StockStatus;
+}
+
+export interface InventoryMovement {
+  id: string;
+  product_id: string;
+  movement_type: MovementType;
+  source: MovementSource;
+  quantity: number;
+  reason?: string;
+  notes?: string;
+  user_email?: string;
+  created_at: string;
+}
+
+export interface MovementWithProduct extends InventoryMovement {
+  products: {
+    name: string;
+    unit: string;
+  };
 }

@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      inventory_movements: {
+        Row: {
+          created_at: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          product_id: string | null
+          quantity: number
+          reason: string | null
+          source: string
+          user_email: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          product_id?: string | null
+          quantity: number
+          reason?: string | null
+          source: string
+          user_email?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number
+          reason?: string | null
+          source?: string
+          user_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "stock_status_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           cost_price: number | null
