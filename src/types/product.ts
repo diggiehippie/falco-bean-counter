@@ -5,6 +5,14 @@ export type MovementSource = 'supplier' | 'woocommerce' | 'manual' | 'damaged' |
 export type OrderStatus = 'draft' | 'sent' | 'delivered' | 'cancelled';
 export type AlertType = 'low_stock' | 'critical_stock' | 'daily_summary';
 
+export interface PackagingSize {
+  id: string;
+  label: string;
+  weight_grams: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -19,6 +27,8 @@ export interface Product {
   cost_price?: number;
   selling_price?: number;
   supplier_id?: string;
+  packaging_size_id?: string;
+  package_count?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;

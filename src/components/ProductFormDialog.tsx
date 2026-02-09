@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useCreateProduct, useUpdateProduct } from '@/hooks/useProducts';
+import { useCreateProduct, useUpdateProduct, usePackagingSizes } from '@/hooks/useProducts';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import type { Product } from '@/types/product';
 
@@ -25,6 +24,8 @@ const productSchema = z.object({
   cost_price: z.coerce.number().min(0).optional().or(z.literal('')),
   selling_price: z.coerce.number().min(0).optional().or(z.literal('')),
   supplier_id: z.string().optional(),
+  packaging_size_id: z.string().optional(),
+  package_count: z.coerce.number().min(0).optional(),
 });
 
 type FormValues = z.infer<typeof productSchema>;
@@ -40,6 +41,7 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const { data: suppliers } = useSuppliers();
+  const { data: packagingSizes } = usePackagingSizes();
   const isEditing = !!product;
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FormValues>({
@@ -57,6 +59,8 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
           cost_price: product.cost_price ?? '',
           selling_price: product.selling_price ?? '',
           supplier_id: product.supplier_id ?? '',
+          packaging_size_id: product.packaging_size_id ?? '',
+          package_count: product.package_count ?? 0,
         }
       : {
           roast_level: 'medium',
@@ -64,8 +68,19 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
           minimum_stock: 10,
           critical_stock: 5,
           supplier_id: '',
+          packaging_size_id: '',
+          package_count: 0,
         },
   });
+
+  const selectedPackagingId = watch('packaging_size_id');
+  const selectedPackaging = packagingSizes?.find((p) => p.id === selectedPackagingId);
+  const packageCount = watch('package_count') ?? 0;
+
+  // Auto-calculate current_stock in grams from packaging
+  const calculatedWeight = selectedPackaging
+    ? (packageCount * selectedPackaging.weight_grams) / 1000
+    : null;
 
   const onSubmit = async (values: FormValues) => {
     const payload = {
@@ -76,6 +91,10 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
       origin: values.origin || null,
       flavor_notes: values.flavor_notes || null,
       supplier_id: values.supplier_id || null,
+      packaging_size_id: values.packaging_size_id || null,
+      package_count: values.package_count ?? 0,
+      // If packaging is selected, override current_stock with calculated weight
+      current_stock: calculatedWeight !== null ? calculatedWeight : values.current_stock,
     };
 
     try {
@@ -147,18 +166,48 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
             <Input id="flavor_notes" {...register('flavor_notes')} />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <Label htmlFor="current_stock">Voorraad (kg) *</Label>
-              <Input id="current_stock" type="number" step="0.01" {...register('current_stock')} />
-              {errors.current_stock && <p className="text-sm text-destructive">{errors.current_stock.message}</p>}
+          {/* Packaging section */}
+          <div className="border rounded-lg p-3 space-y-3">
+            <Label className="text-sm font-semibold">Verpakking & Voorraad</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Verpakkingsgrootte</Label>
+                <Select value={watch('packaging_size_id') ?? ''} onValueChange={(v) => setValue('packaging_size_id', v === 'none' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecteer..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Geen (handmatig)</SelectItem>
+                    {packagingSizes?.map((ps) => (
+                      <SelectItem key={ps.id} value={ps.id}>{ps.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="package_count">Aantal verpakkingen</Label>
+                <Input id="package_count" type="number" min="0" {...register('package_count')} disabled={!selectedPackagingId} />
+              </div>
             </div>
+            {calculatedWeight !== null && (
+              <p className="text-sm text-muted-foreground">
+                = <strong>{calculatedWeight.toFixed(2)} kg</strong> totaal ({packageCount} × {selectedPackaging?.label})
+              </p>
+            )}
+            {!selectedPackagingId && (
+              <div className="space-y-1">
+                <Label htmlFor="current_stock">Voorraad (kg) *</Label>
+                <Input id="current_stock" type="number" step="0.01" {...register('current_stock')} />
+                {errors.current_stock && <p className="text-sm text-destructive">{errors.current_stock.message}</p>}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="minimum_stock">Min. Voorraad *</Label>
+              <Label htmlFor="minimum_stock">Min. Voorraad (kg) *</Label>
               <Input id="minimum_stock" type="number" step="0.01" {...register('minimum_stock')} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="critical_stock">Kritiek *</Label>
+              <Label htmlFor="critical_stock">Kritiek (kg) *</Label>
               <Input id="critical_stock" type="number" step="0.01" {...register('critical_stock')} />
             </div>
           </div>

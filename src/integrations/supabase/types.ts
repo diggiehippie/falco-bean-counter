@@ -202,6 +202,30 @@ export type Database = {
           },
         ]
       }
+      packaging_sizes: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          label: string
+          weight_grams: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          weight_grams: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          weight_grams?: number
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           cost_price: number | null
@@ -215,6 +239,8 @@ export type Database = {
           minimum_stock: number | null
           name: string
           origin: string | null
+          package_count: number | null
+          packaging_size_id: string | null
           roast_level: string | null
           selling_price: number | null
           supplier_id: string | null
@@ -233,6 +259,8 @@ export type Database = {
           minimum_stock?: number | null
           name: string
           origin?: string | null
+          package_count?: number | null
+          packaging_size_id?: string | null
           roast_level?: string | null
           selling_price?: number | null
           supplier_id?: string | null
@@ -251,6 +279,8 @@ export type Database = {
           minimum_stock?: number | null
           name?: string
           origin?: string | null
+          package_count?: number | null
+          packaging_size_id?: string | null
           roast_level?: string | null
           selling_price?: number | null
           supplier_id?: string | null
@@ -258,6 +288,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "products_packaging_size_id_fkey"
+            columns: ["packaging_size_id"]
+            isOneToOne: false
+            referencedRelation: "packaging_sizes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_supplier_id_fkey"
             columns: ["supplier_id"]
@@ -420,6 +457,8 @@ export type Database = {
           minimum_stock: number | null
           name: string | null
           origin: string | null
+          package_count: number | null
+          packaging_size_id: string | null
           roast_level: string | null
           selling_price: number | null
           stock_status: string | null
@@ -439,6 +478,8 @@ export type Database = {
           minimum_stock?: number | null
           name?: string | null
           origin?: string | null
+          package_count?: number | null
+          packaging_size_id?: string | null
           roast_level?: string | null
           selling_price?: number | null
           stock_status?: never
@@ -458,6 +499,8 @@ export type Database = {
           minimum_stock?: number | null
           name?: string | null
           origin?: string | null
+          package_count?: number | null
+          packaging_size_id?: string | null
           roast_level?: string | null
           selling_price?: number | null
           stock_status?: never
@@ -466,6 +509,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "products_packaging_size_id_fkey"
+            columns: ["packaging_size_id"]
+            isOneToOne: false
+            referencedRelation: "packaging_sizes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_supplier_id_fkey"
             columns: ["supplier_id"]

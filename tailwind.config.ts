@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        heading: ["Impact", "'Arial Black'", "sans-serif"],
-        body: ["'Titillium Web'", "system-ui", "sans-serif"],
+        heading: ["'Titillium Web'", "system-ui", "-apple-system", "sans-serif"],
+        body: ["Inter", "'Titillium Web'", "system-ui", "-apple-system", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
