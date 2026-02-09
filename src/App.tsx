@@ -11,6 +11,8 @@ import Products from "./pages/Products";
 import Activity from "./pages/Activity";
 import Suppliers from "./pages/Suppliers";
 import Orders from "./pages/Orders";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,7 +44,9 @@ const App = () => (
             <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
             <Route path="/leveranciers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
             <Route path="/bestellingen" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+            <Route path="/rapporten" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/activiteit" element={<ProtectedRoute><Activity /></ProtectedRoute>} />
+            <Route path="/instellingen" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

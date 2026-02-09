@@ -9,6 +9,7 @@ const navItems = [
   { label: 'Producten', to: '/products' },
   { label: 'Leveranciers', to: '/leveranciers' },
   { label: 'Bestellingen', to: '/bestellingen' },
+  { label: 'Rapporten', to: '/rapporten' },
   { label: 'Activiteit', to: '/activiteit' },
 ];
 
@@ -25,7 +26,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Coffee className="h-6 w-6 text-primary" />
               <span className="font-heading text-lg tracking-wider hidden sm:inline">FALCO CAFFÈ</span>
             </Link>
-            <nav className="hidden md:flex items-center gap-1 ml-6">
+            <nav className="hidden lg:flex items-center gap-1 ml-6">
               {navItems.map((item) => (
                 <Link
                   key={item.to}
@@ -39,18 +40,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
-            <Button variant="ghost" size="sm" onClick={signOut}>
+            <Link to="/instellingen" className="text-sm text-muted-foreground hover:text-foreground hidden sm:inline">{user?.email}</Link>
+            <Button variant="ghost" size="sm" onClick={signOut} className="hidden sm:flex">
               <LogOut className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMenuOpen(!menuOpen)}>
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
         </div>
 
         {menuOpen && (
-          <nav className="md:hidden border-t p-2 space-y-1 bg-card">
+          <nav className="lg:hidden border-t p-2 space-y-1 bg-card">
             {navItems.map((item) => (
               <Link
                 key={item.to}
@@ -61,6 +62,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 {item.label}
               </Link>
             ))}
+            <Link to="/instellingen" onClick={() => setMenuOpen(false)} className="block px-3 py-2 text-sm font-medium rounded-md hover:bg-muted">
+              Instellingen
+            </Link>
+            <button onClick={() => { setMenuOpen(false); signOut(); }} className="block w-full text-left px-3 py-2 text-sm font-medium rounded-md hover:bg-muted text-destructive">
+              Uitloggen
+            </button>
           </nav>
         )}
       </header>
