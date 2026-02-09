@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_log: {
+        Row: {
+          alert_type: string | null
+          id: string
+          message: string | null
+          product_id: string | null
+          sent_at: string | null
+          sent_to: string[] | null
+        }
+        Insert: {
+          alert_type?: string | null
+          id?: string
+          message?: string | null
+          product_id?: string | null
+          sent_at?: string | null
+          sent_to?: string[] | null
+        }
+        Update: {
+          alert_type?: string | null
+          id?: string
+          message?: string | null
+          product_id?: string | null
+          sent_at?: string | null
+          sent_to?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "stock_status_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_settings: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          email_recipients: string[] | null
+          id: string
+          is_enabled: boolean | null
+          last_sent_at: string | null
+          notification_time: string | null
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string | null
+          email_recipients?: string[] | null
+          id?: string
+          is_enabled?: boolean | null
+          last_sent_at?: string | null
+          notification_time?: string | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          email_recipients?: string[] | null
+          id?: string
+          is_enabled?: boolean | null
+          last_sent_at?: string | null
+          notification_time?: string | null
+        }
+        Relationships: []
+      }
       inventory_movements: {
         Row: {
           created_at: string | null

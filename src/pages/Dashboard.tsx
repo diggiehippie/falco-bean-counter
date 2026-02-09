@@ -1,26 +1,42 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
+import { useRecentMovements } from '@/hooks/useMovements';
+import { useAlertLogs } from '@/hooks/useAlerts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { StockStatusBadge } from '@/components/StockStatusBadge';
 import { QuickActions } from '@/components/QuickActions';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { ProductDetailDialog } from '@/components/ProductDetailDialog';
-import { Package, AlertTriangle, AlertCircle, DollarSign } from 'lucide-react';
+import { Package, AlertTriangle, AlertCircle, DollarSign, TrendingDown, ShoppingCart, ArrowUpRight, Bell } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { timeAgo } from '@/lib/timeago';
+import { subDays } from 'date-fns';
 import type { StockStatusView } from '@/types/product';
 
 export default function Dashboard() {
   const { data: products, isLoading } = useProducts();
+  const { data: recentMovements } = useRecentMovements(100);
+  const { data: alertLogs } = useAlertLogs(5);
   const [detailProduct, setDetailProduct] = useState<StockStatusView | null>(null);
 
   const total = products?.length ?? 0;
   const lowCount = products?.filter((p) => p.stock_status === 'low').length ?? 0;
   const criticalCount = products?.filter((p) => p.stock_status === 'critical').length ?? 0;
   const totalValue = products?.reduce((sum, p) => sum + (Number(p.current_stock) * (Number(p.cost_price) || 0)), 0) ?? 0;
+
+  // Weekly stats
+  const weekAgo = subDays(new Date(), 7).toISOString();
+  const weekMovements = useMemo(
+    () => recentMovements?.filter((m) => m.created_at >= weekAgo) ?? [],
+    [recentMovements, weekAgo]
+  );
+  const weekSales = weekMovements.filter((m) => m.movement_type === 'out').reduce((s, m) => s + Number(m.quantity), 0);
+  const weekStockIn = weekMovements.filter((m) => m.movement_type === 'in').reduce((s, m) => s + Number(m.quantity), 0);
 
   const cards = [
     { title: 'Totaal Producten', value: String(total), icon: Package, color: 'text-primary' },
@@ -33,6 +49,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <h1 className="text-3xl">Dashboard</h1>
 
+      {/* Overview cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => {
           const inner = (
@@ -50,6 +67,68 @@ export default function Dashboard() {
         })}
       </div>
 
+      {/* Quick Stats - This Week */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+              <TrendingDown className="h-5 w-5 text-destructive" />
+            </div>
+            <div>
+              <p className="text-lg font-heading">{weekSales.toFixed(1)} kg</p>
+              <p className="text-xs text-muted-foreground">Verkopen deze week</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
+              <ArrowUpRight className="h-5 w-5 text-success" />
+            </div>
+            <div>
+              <p className="text-lg font-heading">{weekStockIn.toFixed(1)} kg</p>
+              <p className="text-xs text-muted-foreground">Toegevoegd deze week</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Link to="/rapporten">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
+            <CardContent className="p-4 flex items-center gap-3 h-full">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <ShoppingCart className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-lg font-heading">Rapporten</p>
+                <p className="text-xs text-muted-foreground">Bekijk gedetailleerde statistieken</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Active Alerts */}
+      {alertLogs && alertLogs.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Bell className="h-5 w-5 text-warning" /> Actieve Meldingen
+            </CardTitle>
+            <Link to="/instellingen" className="text-sm text-primary hover:underline">Instellingen →</Link>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {alertLogs.slice(0, 5).map((log) => (
+                <div key={log.id} className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-muted/50">
+                  <span>{log.message}</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">{timeAgo(log.sent_at)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Products Overview */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Producten Overzicht</CardTitle>
@@ -81,7 +160,7 @@ export default function Dashboard() {
                       <TableCell className="capitalize">{p.roast_level}</TableCell>
                       <TableCell className="text-right">{Number(p.current_stock).toFixed(1)}</TableCell>
                       <TableCell><StockStatusBadge status={p.stock_status} /></TableCell>
-                      <TableCell className="text-right"><QuickActions product={p} /></TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}><QuickActions product={p} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

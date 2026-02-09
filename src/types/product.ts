@@ -3,6 +3,7 @@ export type StockStatus = 'ok' | 'low' | 'critical';
 export type MovementType = 'in' | 'out' | 'adjustment';
 export type MovementSource = 'supplier' | 'woocommerce' | 'manual' | 'damaged' | 'sample' | 'other';
 export type OrderStatus = 'draft' | 'sent' | 'delivered' | 'cancelled';
+export type AlertType = 'low_stock' | 'critical_stock' | 'daily_summary';
 
 export interface Product {
   id: string;
@@ -84,4 +85,23 @@ export interface OrderWithDetails extends SupplierOrder {
   supplier_order_items: (OrderItem & {
     products: { name: string; unit: string };
   })[];
+}
+
+export interface AlertSetting {
+  id: string;
+  alert_type: AlertType;
+  is_enabled: boolean;
+  email_recipients: string[];
+  notification_time?: string;
+  last_sent_at?: string;
+  created_at: string;
+}
+
+export interface AlertLog {
+  id: string;
+  alert_type: string;
+  product_id?: string;
+  message: string;
+  sent_to: string[];
+  sent_at: string;
 }
