@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Coffee, Menu, X, LogOut } from 'lucide-react';
+import { ChatWidget } from '@/components/ChatWidget';
 
 const navItems = [
   { label: 'Dashboard', to: '/' },
@@ -75,6 +76,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 container py-6 animate-fade-in">
         {children}
       </main>
+      <ChatWidget />
     </div>
   );
 }
