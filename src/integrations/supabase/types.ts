@@ -80,6 +80,7 @@ export type Database = {
           origin: string | null
           roast_level: string | null
           selling_price: number | null
+          supplier_id: string | null
           unit: string | null
           updated_at: string | null
         }
@@ -97,6 +98,7 @@ export type Database = {
           origin?: string | null
           roast_level?: string | null
           selling_price?: number | null
+          supplier_id?: string | null
           unit?: string | null
           updated_at?: string | null
         }
@@ -114,8 +116,155 @@ export type Database = {
           origin?: string | null
           roast_level?: string | null
           selling_price?: number | null
+          supplier_id?: string | null
           unit?: string | null
           updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_order_items: {
+        Row: {
+          id: string
+          order_id: string | null
+          product_id: string | null
+          quantity: number
+          total_price: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          id?: string
+          order_id?: string | null
+          product_id?: string | null
+          quantity: number
+          total_price?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          id?: string
+          order_id?: string | null
+          product_id?: string | null
+          quantity?: number
+          total_price?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "stock_status_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_orders: {
+        Row: {
+          actual_delivery_date: string | null
+          created_at: string | null
+          created_by: string | null
+          email_body: string | null
+          expected_delivery_date: string | null
+          id: string
+          notes: string | null
+          order_date: string | null
+          status: string | null
+          supplier_id: string | null
+          total_amount: number | null
+        }
+        Insert: {
+          actual_delivery_date?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email_body?: string | null
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          total_amount?: number | null
+        }
+        Update: {
+          actual_delivery_date?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email_body?: string | null
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          total_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          average_delivery_days: number | null
+          contact_person: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          minimum_order_value: number | null
+          name: string
+          notes: string | null
+          phone: string | null
+        }
+        Insert: {
+          average_delivery_days?: number | null
+          contact_person?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          minimum_order_value?: number | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Update: {
+          average_delivery_days?: number | null
+          contact_person?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          minimum_order_value?: number | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
         }
         Relationships: []
       }
@@ -137,6 +286,7 @@ export type Database = {
           roast_level: string | null
           selling_price: number | null
           stock_status: string | null
+          supplier_id: string | null
           unit: string | null
           updated_at: string | null
         }
@@ -155,6 +305,7 @@ export type Database = {
           roast_level?: string | null
           selling_price?: number | null
           stock_status?: never
+          supplier_id?: string | null
           unit?: string | null
           updated_at?: string | null
         }
@@ -173,10 +324,19 @@ export type Database = {
           roast_level?: string | null
           selling_price?: number | null
           stock_status?: never
+          supplier_id?: string | null
           unit?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
