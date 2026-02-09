@@ -29,6 +29,7 @@ export interface Product {
   supplier_id?: string;
   packaging_size_id?: string;
   package_count?: number;
+  woocommerce_product_id?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;

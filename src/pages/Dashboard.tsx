@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
 import { useRecentMovements } from '@/hooks/useMovements';
 import { useAlertLogs } from '@/hooks/useAlerts';
+import { useWooCommerceSettings, useTodaySyncStats } from '@/hooks/useWooCommerce';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { StockStatusBadge } from '@/components/StockStatusBadge';
 import { QuickActions } from '@/components/QuickActions';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { ProductDetailDialog } from '@/components/ProductDetailDialog';
-import { Package, AlertTriangle, AlertCircle, Euro, TrendingDown, ShoppingCart, ArrowUpRight, Bell } from 'lucide-react';
+import { Package, AlertTriangle, AlertCircle, Euro, TrendingDown, ShoppingCart, ArrowUpRight, Bell, RefreshCw } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const { data: recentMovements } = useRecentMovements(100);
   const { data: alertLogs } = useAlertLogs(5);
   const [detailProduct, setDetailProduct] = useState<StockStatusView | null>(null);
+  const { data: wcSettings } = useWooCommerceSettings();
+  const { data: syncStats } = useTodaySyncStats();
 
   const total = products?.length ?? 0;
   const lowCount = products?.filter((p) => p.stock_status === 'low').length ?? 0;
@@ -123,6 +126,36 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">{timeAgo(log.sent_at)}</span>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* WooCommerce Sync Status */}
+      {wcSettings && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" /> WooCommerce Sync
+            </CardTitle>
+            <Link to="/woocommerce" className="text-sm text-primary hover:underline">Instellingen →</Link>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <p className="font-medium text-success">🟢 Actief</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Laatste sync</p>
+                <p className="font-medium">{wcSettings.last_import_at ? timeAgo(wcSettings.last_import_at) : 'Nog niet'}</p>
+              </div>
+              {syncStats && (
+                <div>
+                  <p className="text-muted-foreground">Vandaag</p>
+                  <p className="font-medium">{syncStats.orderCount} verkopen · {syncStats.totalQty.toFixed(1)} kg</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

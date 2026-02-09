@@ -13,6 +13,7 @@ import Suppliers from "./pages/Suppliers";
 import Orders from "./pages/Orders";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import WooCommerce from "./pages/WooCommerce";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/rapporten" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/activiteit" element={<ProtectedRoute><Activity /></ProtectedRoute>} />
             <Route path="/instellingen" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/woocommerce" element={<ProtectedRoute><WooCommerce /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
