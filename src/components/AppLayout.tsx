@@ -6,7 +6,8 @@ import { Coffee, Menu, X, LogOut } from 'lucide-react';
 
 const navItems = [
   { label: 'Dashboard', to: '/' },
-  { label: 'Products', to: '/products' },
+  { label: 'Producten', to: '/products' },
+  { label: 'Activiteit', to: '/activiteit' },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
