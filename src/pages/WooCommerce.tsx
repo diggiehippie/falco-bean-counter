@@ -5,8 +5,12 @@ import {
   useTestWcConnection,
   useImportProducts,
   useSyncStock,
+  usePushStock,
   useMatchProducts,
+  useToggleAutoSync,
   useSyncLogs,
+  useSyncHealth,
+  useTodaySyncStats,
   type SyncLog,
 } from '@/hooks/useWooCommerce';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -23,9 +28,12 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { timeAgo } from '@/lib/timeago';
+import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 import {
   ShoppingBag, Plug, Download, RefreshCw, Link2, CheckCircle, XCircle,
-  Clock, AlertTriangle, Copy, ExternalLink,
+  Clock, AlertTriangle, Copy, ExternalLink, Upload, Zap,
+  ShieldCheck, ShieldAlert, ShieldX, ShieldQuestion,
 } from 'lucide-react';
 
 const SYNC_TYPE_LABELS: Record<string, string> = {
@@ -43,8 +51,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 function SyncStatusBadge({ status }: { status: string }) {
   return (
-    <Badge variant="outline" className={STATUS_COLORS[status] ?? ''}>
-      {status === 'success' ? '✅ Succes' : status === 'failed' ? '❌ Mislukt' : '⏳ Bezig'}
+    <Badge variant="outline" className={cn(STATUS_COLORS[status] ?? '', 'gap-1')}>
+      {status === 'success' && <CheckCircle className="h-3 w-3" />}
+      {status === 'failed' && <XCircle className="h-3 w-3" />}
+      {status === 'pending' && <Clock className="h-3 w-3" />}
+      {status === 'success' ? 'Succes' : status === 'failed' ? 'Mislukt' : 'Bezig'}
     </Badge>
   );
 }
@@ -56,8 +67,12 @@ export default function WooCommercePage() {
   const testConnection = useTestWcConnection();
   const importProducts = useImportProducts();
   const syncStock = useSyncStock();
+  const pushStock = usePushStock();
   const matchProducts = useMatchProducts();
+  const toggleAutoSync = useToggleAutoSync();
   const { data: syncLogs, isLoading: logsLoading } = useSyncLogs(100);
+  const { data: syncHealth } = useSyncHealth();
+  const { data: syncStats } = useTodaySyncStats();
 
   const [storeUrl, setStoreUrl] = useState('');
   const [consumerKey, setConsumerKey] = useState('');
@@ -149,6 +164,27 @@ export default function WooCommercePage() {
     }
   };
 
+  const handlePushStock = async () => {
+    try {
+      const result = await pushStock.mutateAsync();
+      toast({
+        title: `✅ ${result.pushed} producten naar WooCommerce gepusht`,
+        description: result.errors > 0 ? `${result.errors} fouten, ${result.skipped} overgeslagen` : `${result.skipped} overgeslagen (al gelijk)`,
+      });
+    } catch (err: any) {
+      toast({ title: '❌ Push mislukt', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleToggleAutoSync = async (enabled: boolean) => {
+    try {
+      await toggleAutoSync.mutateAsync(enabled);
+      toast({ title: enabled ? '✅ Auto-sync ingeschakeld' : 'Auto-sync uitgeschakeld' });
+    } catch (err: any) {
+      toast({ title: 'Fout', description: err.message, variant: 'destructive' });
+    }
+  };
+
   const handleMatch = async () => {
     try {
       const result = await matchProducts.mutateAsync();
@@ -186,6 +222,88 @@ export default function WooCommercePage() {
         <ShoppingBag className="h-7 w-7 text-primary" />
         <h1 className="text-3xl">WooCommerce</h1>
       </div>
+
+      {/* Sync Health Summary */}
+      {wcSettings && syncHealth && (
+        <Card className={cn(
+          'border-l-4',
+          syncHealth.status === 'healthy' && 'border-l-success',
+          syncHealth.status === 'degraded' && 'border-l-warning',
+          syncHealth.status === 'error' && 'border-l-destructive',
+          syncHealth.status === 'unknown' && 'border-l-muted-foreground',
+        )}>
+          <CardContent className="py-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  'h-10 w-10 rounded-lg flex items-center justify-center',
+                  syncHealth.status === 'healthy' && 'bg-success/10',
+                  syncHealth.status === 'degraded' && 'bg-warning/10',
+                  syncHealth.status === 'error' && 'bg-destructive/10',
+                  syncHealth.status === 'unknown' && 'bg-muted',
+                )}>
+                  {syncHealth.status === 'healthy' && <ShieldCheck className="h-5 w-5 text-success" />}
+                  {syncHealth.status === 'degraded' && <ShieldAlert className="h-5 w-5 text-warning" />}
+                  {syncHealth.status === 'error' && <ShieldX className="h-5 w-5 text-destructive" />}
+                  {syncHealth.status === 'unknown' && <ShieldQuestion className="h-5 w-5 text-muted-foreground" />}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Sync Status</p>
+                  <p className={cn(
+                    'text-sm font-heading font-bold',
+                    syncHealth.status === 'healthy' && 'text-success',
+                    syncHealth.status === 'degraded' && 'text-warning',
+                    syncHealth.status === 'error' && 'text-destructive',
+                    syncHealth.status === 'unknown' && 'text-muted-foreground',
+                  )}>
+                    {syncHealth.status === 'healthy' ? 'Gezond' :
+                     syncHealth.status === 'degraded' ? 'Vertraagd' :
+                     syncHealth.status === 'error' ? 'Fout' : 'Onbekend'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs text-muted-foreground">Laatste succesvolle sync</p>
+                <p className="text-sm font-medium">
+                  {syncHealth.lastSuccess ? timeAgo(syncHealth.lastSuccess) : 'Nog niet'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-muted-foreground">24u succes / mislukt</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">
+                    <span className="text-success">{syncHealth.successCount24h}</span>
+                    {' / '}
+                    <span className={syncHealth.failedCount24h > 0 ? 'text-destructive' : 'text-muted-foreground'}>
+                      {syncHealth.failedCount24h}
+                    </span>
+                  </p>
+                </div>
+                {(syncHealth.successCount24h + syncHealth.failedCount24h) > 0 && (
+                  <Progress
+                    value={Math.round(
+                      (syncHealth.successCount24h / (syncHealth.successCount24h + syncHealth.failedCount24h)) * 100
+                    )}
+                    className="h-1.5 mt-1"
+                  />
+                )}
+              </div>
+
+              {syncStats && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Vandaag verwerkt</p>
+                  <p className="text-sm font-medium">
+                    {syncStats.orderCount} {syncStats.orderCount === 1 ? 'bestelling' : 'bestellingen'}
+                    {' · '}{syncStats.totalQty.toFixed(1)} kg
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Connection Settings */}
       <Card>
@@ -302,14 +420,42 @@ export default function WooCommercePage() {
             <RefreshCw className="h-5 w-5" /> Voorraad Synchroniseren
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Haal de nieuwste voorraadniveaus op uit WooCommerce voor alle gekoppelde producten.
-          </p>
-          <Button onClick={handleSync} disabled={syncStock.isPending || !wcSettings}>
-            {syncStock.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            {syncStock.isPending ? 'Synchroniseren...' : 'Sync Voorraad Nu'}
-          </Button>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Handmatige Sync</p>
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={handleSync} disabled={syncStock.isPending || !wcSettings}>
+                {syncStock.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                {syncStock.isPending ? 'Ophalen...' : 'Pull van WooCommerce'}
+              </Button>
+              <Button variant="outline" onClick={handlePushStock} disabled={pushStock.isPending || !wcSettings}>
+                {pushStock.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                {pushStock.isPending ? 'Pushen...' : 'Push naar WooCommerce'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Pull: haalt WC voorraad op naar deze app. Push: stuurt app voorraad naar WooCommerce.
+            </p>
+          </div>
+
+          <div className="border-t pt-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">Automatische Sync</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Synchroniseer voorraad automatisch elke 15 minuten (bidirectioneel)
+                </p>
+              </div>
+              <Switch
+                checked={wcSettings?.auto_import_enabled ?? false}
+                onCheckedChange={handleToggleAutoSync}
+                disabled={toggleAutoSync.isPending || !wcSettings}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -367,9 +513,16 @@ export default function WooCommercePage() {
       {/* Sync Log */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Clock className="h-5 w-5" /> Sync Geschiedenis
-          </CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Clock className="h-5 w-5" /> Sync Geschiedenis
+            </CardTitle>
+            {filteredLogs && (
+              <Badge variant="secondary" className="text-xs font-normal">
+                {filteredLogs.length} {filteredLogs.length === 1 ? 'item' : 'items'}
+              </Badge>
+            )}
+          </div>
           <Select value={logFilter} onValueChange={setLogFilter}>
             <SelectTrigger className="w-44">
               <SelectValue />
@@ -379,6 +532,7 @@ export default function WooCommercePage() {
               <SelectItem value="import_products">Import Producten</SelectItem>
               <SelectItem value="import_stock">Import Voorraad</SelectItem>
               <SelectItem value="import_order">Import Bestellingen</SelectItem>
+              <SelectItem value="full_sync">Volledige Sync</SelectItem>
             </SelectContent>
           </Select>
         </CardHeader>
@@ -394,19 +548,43 @@ export default function WooCommercePage() {
                   <TableRow>
                     <TableHead>Tijd</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Richting</TableHead>
                     <TableHead>Details</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredLogs.map((log) => (
-                    <TableRow key={log.id}>
+                    <TableRow key={log.id} className={cn(
+                      log.status === 'failed' && 'bg-destructive/5',
+                      log.status === 'pending' && 'bg-warning/5',
+                    )}>
                       <TableCell className="text-xs whitespace-nowrap">{timeAgo(log.synced_at)}</TableCell>
                       <TableCell className="text-xs">{SYNC_TYPE_LABELS[log.sync_type] ?? log.sync_type}</TableCell>
                       <TableCell className="text-xs">
+                        {log.direction === 'to_woocommerce' ? (
+                          <Badge variant="outline" className="gap-1 text-[10px] font-normal">
+                            <Upload className="h-3 w-3" /> Push
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 text-[10px] font-normal">
+                            <Download className="h-3 w-3" /> Pull
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">
                         {log.new_value && <span>{log.old_value ? `${log.old_value} → ` : ''}{log.new_value}</span>}
                         {log.woocommerce_order_id && <span className="text-muted-foreground ml-1">(#WC{log.woocommerce_order_id})</span>}
-                        {log.error_message && <span className="text-destructive block">{log.error_message}</span>}
+                        {log.error_message && (
+                          <div className="mt-1 text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded px-2 py-1">
+                            <span className="font-medium">Fout:</span> {log.error_message}
+                            {log.error_details?.category && (
+                              <span className="block text-[10px] text-muted-foreground mt-0.5">
+                                Categorie: {log.error_details.category} · Pogingen: {log.error_details.attempts}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell><SyncStatusBadge status={log.status} /></TableCell>
                     </TableRow>

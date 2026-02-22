@@ -1,4 +1,4 @@
-project_id = "iqftihslferjdqnrpswz"
+project_id = "kesapqjliobaqwyrixwd"
 
 [functions.chat]
 verify_jwt = false
@@ -7,4 +7,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.woocommerce-webhook]
+verify_jwt = false
+
+[functions.woocommerce-auto-sync]
 verify_jwt = false

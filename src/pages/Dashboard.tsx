@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
 import { useRecentMovements } from '@/hooks/useMovements';
 import { useAlertLogs } from '@/hooks/useAlerts';
-import { useWooCommerceSettings, useTodaySyncStats } from '@/hooks/useWooCommerce';
+import { useWooCommerceSettings, useTodaySyncStats, useSyncHealth } from '@/hooks/useWooCommerce';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,12 @@ import { StockStatusBadge } from '@/components/StockStatusBadge';
 import { QuickActions } from '@/components/QuickActions';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { ProductDetailDialog } from '@/components/ProductDetailDialog';
-import { Package, AlertTriangle, AlertCircle, Euro, TrendingDown, ShoppingCart, ArrowUpRight, Bell, RefreshCw } from 'lucide-react';
+import { Package, AlertTriangle, AlertCircle, Euro, TrendingDown, ShoppingCart, ArrowUpRight, Bell, RefreshCw, CheckCircle } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { timeAgo } from '@/lib/timeago';
+import { cn } from '@/lib/utils';
 import { subDays } from 'date-fns';
 import type { StockStatusView } from '@/types/product';
 
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const [detailProduct, setDetailProduct] = useState<StockStatusView | null>(null);
   const { data: wcSettings } = useWooCommerceSettings();
   const { data: syncStats } = useTodaySyncStats();
+  const { data: syncHealth } = useSyncHealth();
 
   const total = products?.length ?? 0;
   const lowCount = products?.filter((p) => p.stock_status === 'low').length ?? 0;
@@ -133,27 +135,73 @@ export default function Dashboard() {
 
       {/* WooCommerce Sync Status */}
       {wcSettings && (
-        <Card>
+        <Card className={cn(
+          'border-l-4',
+          syncHealth?.status === 'healthy' && 'border-l-success',
+          syncHealth?.status === 'degraded' && 'border-l-warning',
+          syncHealth?.status === 'error' && 'border-l-destructive',
+          (!syncHealth || syncHealth.status === 'unknown') && 'border-l-muted-foreground',
+        )}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <RefreshCw className="h-5 w-5 text-primary" /> WooCommerce Sync
             </CardTitle>
-            <Link to="/woocommerce" className="text-sm text-primary hover:underline">Instellingen →</Link>
+            <Link to="/woocommerce" className="text-sm text-primary hover:underline">Beheren →</Link>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Status</p>
-                <p className="font-medium text-success">🟢 Actief</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  'h-9 w-9 rounded-lg flex items-center justify-center',
+                  syncHealth?.status === 'healthy' && 'bg-success/10',
+                  syncHealth?.status === 'degraded' && 'bg-warning/10',
+                  syncHealth?.status === 'error' && 'bg-destructive/10',
+                  (!syncHealth || syncHealth.status === 'unknown') && 'bg-muted',
+                )}>
+                  {syncHealth?.status === 'healthy' && <CheckCircle className="h-4 w-4 text-success" />}
+                  {syncHealth?.status === 'degraded' && <AlertTriangle className="h-4 w-4 text-warning" />}
+                  {syncHealth?.status === 'error' && <AlertCircle className="h-4 w-4 text-destructive" />}
+                  {(!syncHealth || syncHealth.status === 'unknown') && <RefreshCw className="h-4 w-4 text-muted-foreground" />}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <p className={cn(
+                    'text-sm font-medium',
+                    syncHealth?.status === 'healthy' && 'text-success',
+                    syncHealth?.status === 'degraded' && 'text-warning',
+                    syncHealth?.status === 'error' && 'text-destructive',
+                    (!syncHealth || syncHealth.status === 'unknown') && 'text-muted-foreground',
+                  )}>
+                    {syncHealth?.status === 'healthy' ? 'Gezond' :
+                     syncHealth?.status === 'degraded' ? 'Vertraagd' :
+                     syncHealth?.status === 'error' ? 'Fout' : 'Onbekend'}
+                  </p>
+                </div>
               </div>
               <div>
-                <p className="text-muted-foreground">Laatste sync</p>
-                <p className="font-medium">{wcSettings.last_import_at ? timeAgo(wcSettings.last_import_at) : 'Nog niet'}</p>
+                <p className="text-xs text-muted-foreground">Laatste sync</p>
+                <p className="text-sm font-medium">{wcSettings.last_import_at ? timeAgo(wcSettings.last_import_at) : 'Nog niet'}</p>
               </div>
+              {syncHealth && (
+                <div>
+                  <p className="text-xs text-muted-foreground">24u resultaat</p>
+                  <p className="text-sm font-medium">
+                    <span className="text-success">{syncHealth.successCount24h}</span>
+                    {' gelukt · '}
+                    <span className={syncHealth.failedCount24h > 0 ? 'text-destructive' : 'text-muted-foreground'}>
+                      {syncHealth.failedCount24h}
+                    </span>
+                    {' mislukt'}
+                  </p>
+                </div>
+              )}
               {syncStats && (
                 <div>
-                  <p className="text-muted-foreground">Vandaag</p>
-                  <p className="font-medium">{syncStats.orderCount} verkopen · {syncStats.totalQty.toFixed(1)} kg</p>
+                  <p className="text-xs text-muted-foreground">Vandaag</p>
+                  <p className="text-sm font-medium">
+                    {syncStats.orderCount} {syncStats.orderCount === 1 ? 'verkoop' : 'verkopen'}
+                    {' · '}{syncStats.totalQty.toFixed(1)} kg
+                  </p>
                 </div>
               )}
             </div>

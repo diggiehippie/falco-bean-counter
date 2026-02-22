@@ -65,19 +65,86 @@ Deno.serve(async (req) => {
     const wcAuth =
       "Basic " + btoa(`${consumerKey}:${consumerSecret}`);
 
-    async function wcFetch(endpoint: string, fetchParams: Record<string, string> = {}) {
-      const url = new URL(`${storeUrl}/wp-json/wc/v3/${endpoint}`);
-      Object.entries(fetchParams).forEach(([k, v]) =>
-        url.searchParams.set(k, v)
-      );
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: wcAuth },
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`WooCommerce API fout (${res.status}): ${text.slice(0, 200)}`);
+    function categorizeError(status: number): { category: string; retryable: boolean } {
+      if (status === 0) return { category: "connection", retryable: true };
+      if (status === 401 || status === 403) return { category: "auth", retryable: false };
+      if (status === 404) return { category: "not_found", retryable: false };
+      if (status === 429) return { category: "rate_limit", retryable: true };
+      if (status === 400 || status === 422) return { category: "data", retryable: false };
+      if (status >= 500) return { category: "server", retryable: true };
+      return { category: "unknown", retryable: false };
+    }
+
+    class WcApiError extends Error {
+      status: number;
+      category: string;
+      retryable: boolean;
+      responseBody: string;
+      constructor(status: number, responseBody: string) {
+        const { category, retryable } = categorizeError(status);
+        super(`WooCommerce API fout (${status}/${category}): ${responseBody.slice(0, 200)}`);
+        this.status = status;
+        this.category = category;
+        this.retryable = retryable;
+        this.responseBody = responseBody.slice(0, 500);
       }
-      return res.json();
+      toErrorDetails(attempts: number) {
+        return {
+          category: this.category,
+          http_status: this.status,
+          response_body: this.responseBody,
+          attempts,
+          last_attempt_at: new Date().toISOString(),
+        };
+      }
+    }
+
+    async function wcRequest(endpoint: string, options: { method?: string; params?: Record<string, string>; body?: Record<string, unknown> } = {}) {
+      const maxRetries = 3;
+      const { method = "GET", params = {}, body } = options;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const url = new URL(`${storeUrl}/wp-json/wc/v3/${endpoint}`);
+          Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+          const fetchOptions: RequestInit = {
+            method,
+            headers: { Authorization: wcAuth, ...(body ? { "Content-Type": "application/json" } : {}) },
+            ...(body ? { body: JSON.stringify(body) } : {}),
+          };
+
+          const res = await fetch(url.toString(), fetchOptions);
+
+          if (!res.ok) {
+            const text = await res.text();
+            const err = new WcApiError(res.status, text);
+            if (err.retryable && attempt < maxRetries) {
+              await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+              continue;
+            }
+            throw err;
+          }
+          return res.json();
+        } catch (e) {
+          if (e instanceof WcApiError) throw e;
+          // Network/connection errors
+          if (attempt < maxRetries) {
+            await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+            continue;
+          }
+          const connErr = new WcApiError(0, e instanceof Error ? e.message : "Verbindingsfout");
+          throw connErr;
+        }
+      }
+    }
+
+    async function wcFetch(endpoint: string, fetchParams: Record<string, string> = {}) {
+      return wcRequest(endpoint, { params: fetchParams });
+    }
+
+    async function wcPut(endpoint: string, body: Record<string, unknown>) {
+      return wcRequest(endpoint, { method: "PUT", body });
     }
 
     let result: unknown;
@@ -213,6 +280,7 @@ Deno.serve(async (req) => {
               woocommerce_product_id: product.woocommerce_product_id,
               status: "failed",
               error_message: e instanceof Error ? e.message : "Onbekende fout",
+              error_details: e instanceof WcApiError ? e.toErrorDetails(3) : { category: "unknown", attempts: 1 },
             });
           }
         }
@@ -272,6 +340,71 @@ Deno.serve(async (req) => {
         }
 
         result = { matched, unmatched };
+        break;
+      }
+
+      case "push_stock": {
+        const { data: products } = await supabase
+          .from("products")
+          .select("id, name, woocommerce_product_id, current_stock")
+          .not("woocommerce_product_id", "is", null);
+
+        let pushed = 0;
+        let errors = 0;
+        let skipped = 0;
+
+        for (const product of products ?? []) {
+          try {
+            // Fetch current WC stock to compare
+            const wcp = await wcFetch(
+              `products/${product.woocommerce_product_id}`
+            );
+            const wcStock = wcp.stock_quantity ?? 0;
+            const localStock = Number(product.current_stock) || 0;
+
+            if (wcStock === localStock) {
+              skipped++;
+              continue;
+            }
+
+            // Push local stock to WooCommerce
+            await wcPut(`products/${product.woocommerce_product_id}`, {
+              stock_quantity: localStock,
+              manage_stock: true,
+            });
+
+            await supabase.from("sync_log").insert({
+              sync_type: "import_stock",
+              direction: "to_woocommerce",
+              product_id: product.id,
+              woocommerce_product_id: product.woocommerce_product_id,
+              old_value: String(wcStock),
+              new_value: String(localStock),
+              status: "success",
+            });
+            pushed++;
+          } catch (e) {
+            errors++;
+            await supabase.from("sync_log").insert({
+              sync_type: "import_stock",
+              direction: "to_woocommerce",
+              product_id: product.id,
+              woocommerce_product_id: product.woocommerce_product_id,
+              status: "failed",
+              error_message: e instanceof Error ? e.message : "Onbekende fout",
+              error_details: e instanceof WcApiError ? e.toErrorDetails(3) : { category: "unknown", attempts: 1 },
+            });
+          }
+        }
+
+        if (wcSettings) {
+          await supabase
+            .from("woocommerce_settings")
+            .update({ last_import_at: new Date().toISOString() })
+            .eq("id", wcSettings.id);
+        }
+
+        result = { pushed, skipped, errors, total: products?.length ?? 0 };
         break;
       }
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,22 +44,31 @@ export function OrderDialog({ open, onOpenChange, supplier }: Props) {
 
   const [lines, setLines] = useState<OrderLineItem[]>([]);
 
-  // Reset state when dialog opens
+  const buildLines = (products: StockStatusView[]) =>
+    products.map((p) => {
+      const suggested = Math.max(0, p.minimum_stock - Number(p.current_stock));
+      return {
+        product: p,
+        selected: p.stock_status !== 'ok',
+        quantity: suggested > 0 ? suggested : 1,
+        unitPrice: Number(p.cost_price) || 0,
+      };
+    });
+
+  // Populate lines when dialog opens or supplier products become available
+  useEffect(() => {
+    if (open && supplier && supplierProducts.length > 0 && lines.length === 0) {
+      setStep(1);
+      setNotes('');
+      setLines(buildLines(supplierProducts));
+    }
+  }, [open, supplier, supplierProducts]);
+
   const handleOpenChange = (o: boolean) => {
     if (o && supplier) {
       setStep(1);
       setNotes('');
-      setLines(
-        supplierProducts.map((p) => {
-          const suggested = Math.max(0, p.minimum_stock - Number(p.current_stock));
-          return {
-            product: p,
-            selected: p.stock_status !== 'ok',
-            quantity: suggested > 0 ? suggested : 1,
-            unitPrice: Number(p.cost_price) || 0,
-          };
-        })
-      );
+      setLines(buildLines(supplierProducts));
     }
     onOpenChange(o);
   };
