@@ -76,12 +76,16 @@ Deno.serve(async (req) => {
         try {
           const url = new URL(`${wcSettings.store_url}/wp-json/wc/v3/${endpoint}`);
           Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 20000);
           const fetchOptions: RequestInit = {
             method,
             headers: { Authorization: wcAuth, ...(body ? { "Content-Type": "application/json" } : {}) },
             ...(body ? { body: JSON.stringify(body) } : {}),
+            signal: controller.signal,
           };
           const res = await fetch(url.toString(), fetchOptions);
+          clearTimeout(timeoutId);
           if (!res.ok) {
             const text = await res.text();
             const err = new WcApiError(res.status, text);
@@ -111,10 +115,17 @@ Deno.serve(async (req) => {
       return wcRequest(endpoint, { method: "PUT", body });
     }
 
+    function getWcProductEndpoint(productId: number, parentId?: number | null): string {
+      if (parentId && parentId > 0) {
+        return `products/${parentId}/variations/${productId}`;
+      }
+      return `products/${productId}`;
+    }
+
     // Get all linked products
     const { data: products } = await supabase
       .from("products")
-      .select("id, name, woocommerce_product_id, current_stock")
+      .select("id, name, woocommerce_product_id, woocommerce_parent_id, current_stock")
       .not("woocommerce_product_id", "is", null);
 
     let pullCount = 0;
@@ -123,7 +134,11 @@ Deno.serve(async (req) => {
 
     for (const product of products ?? []) {
       try {
-        const wcp = await wcFetch(`products/${product.woocommerce_product_id}`);
+        const endpoint = getWcProductEndpoint(
+          product.woocommerce_product_id!,
+          product.woocommerce_parent_id
+        );
+        const wcp = await wcFetch(endpoint);
         const wcStock = wcp.stock_quantity ?? 0;
         const localStock = Number(product.current_stock) || 0;
 
@@ -157,7 +172,7 @@ Deno.serve(async (req) => {
 
         if (recentMovement || recentLocalChange) {
           // Local was changed recently → push local stock to WC
-          await wcPut(`products/${product.woocommerce_product_id}`, {
+          await wcPut(endpoint, {
             stock_quantity: localStock,
             manage_stock: true,
           });

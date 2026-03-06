@@ -74,11 +74,30 @@ Deno.serve(async (req) => {
     let processed = 0;
 
     for (const item of order.line_items) {
-      const { data: product } = await supabase
-        .from("products")
-        .select("id, name, current_stock")
-        .eq("woocommerce_product_id", item.product_id)
-        .maybeSingle();
+      // Look up by variation_id first (for variable products), then product_id
+      let product = null;
+
+      if (item.variation_id && item.variation_id > 0) {
+        const { data } = await supabase
+          .from("products")
+          .select("id, name, current_stock")
+          .eq("woocommerce_product_id", item.variation_id)
+          .eq("woocommerce_parent_id", item.product_id)
+          .maybeSingle();
+        product = data;
+      }
+
+      if (!product) {
+        const { data } = await supabase
+          .from("products")
+          .select("id, name, current_stock")
+          .eq("woocommerce_product_id", item.product_id)
+          .is("woocommerce_parent_id", null)
+          .maybeSingle();
+        product = data;
+      }
+
+      const wcId = (item.variation_id && item.variation_id > 0) ? item.variation_id : item.product_id;
 
       if (product) {
         // Create inventory movement (trigger will update stock)
@@ -100,7 +119,7 @@ Deno.serve(async (req) => {
           sync_type: "import_order",
           direction: "from_woocommerce",
           product_id: product.id,
-          woocommerce_product_id: item.product_id,
+          woocommerce_product_id: wcId,
           woocommerce_order_id: order.id,
           old_value: String(product.current_stock),
           new_value: String(Number(product.current_stock) - item.quantity),
@@ -112,10 +131,12 @@ Deno.serve(async (req) => {
         await supabase.from("sync_log").insert({
           sync_type: "import_order",
           direction: "from_woocommerce",
-          woocommerce_product_id: item.product_id,
+          woocommerce_product_id: wcId,
           woocommerce_order_id: order.id,
           status: "failed",
-          error_message: `Product met WooCommerce ID ${item.product_id} niet gevonden`,
+          error_message: item.variation_id && item.variation_id > 0
+            ? `Productvariant met WooCommerce ID ${item.variation_id} (parent ${item.product_id}) niet gevonden`
+            : `Product met WooCommerce ID ${item.product_id} niet gevonden`,
         });
       }
     }

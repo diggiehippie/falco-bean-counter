@@ -108,13 +108,18 @@ Deno.serve(async (req) => {
           const url = new URL(`${storeUrl}/wp-json/wc/v3/${endpoint}`);
           Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 20000);
+
           const fetchOptions: RequestInit = {
             method,
             headers: { Authorization: wcAuth, ...(body ? { "Content-Type": "application/json" } : {}) },
             ...(body ? { body: JSON.stringify(body) } : {}),
+            signal: controller.signal,
           };
 
           const res = await fetch(url.toString(), fetchOptions);
+          clearTimeout(timeoutId);
 
           if (!res.ok) {
             const text = await res.text();
@@ -145,6 +150,13 @@ Deno.serve(async (req) => {
 
     async function wcPut(endpoint: string, body: Record<string, unknown>) {
       return wcRequest(endpoint, { method: "PUT", body });
+    }
+
+    function getWcProductEndpoint(productId: number, parentId?: number | null): string {
+      if (parentId && parentId > 0) {
+        return `products/${parentId}/variations/${productId}`;
+      }
+      return `products/${productId}`;
     }
 
     let result: unknown;
@@ -179,51 +191,139 @@ Deno.serve(async (req) => {
         }
 
         for (const wcp of allProducts) {
-          // Check if product already exists
-          const { data: existing } = await supabase
-            .from("products")
-            .select("id")
-            .eq("woocommerce_product_id", wcp.id)
-            .maybeSingle();
+          if (wcp.type === "simple") {
+            // Simple product — import directly
+            const { data: existing } = await supabase
+              .from("products")
+              .select("id")
+              .eq("woocommerce_product_id", wcp.id)
+              .is("woocommerce_parent_id", null)
+              .maybeSingle();
 
-          if (existing) {
-            skipped++;
-            continue;
+            if (existing) {
+              skipped++;
+              continue;
+            }
+
+            const { data: newProduct, error } = await supabase
+              .from("products")
+              .insert({
+                name: wcp.name,
+                description: wcp.short_description || wcp.description || null,
+                current_stock: wcp.stock_quantity || 0,
+                woocommerce_product_id: wcp.id,
+                woocommerce_parent_id: null,
+                selling_price: wcp.price ? parseFloat(wcp.price) : null,
+                is_active: wcp.status === "publish",
+              })
+              .select("id")
+              .single();
+
+            if (!error && newProduct) {
+              imported++;
+              await supabase.from("sync_log").insert({
+                sync_type: "import_products",
+                direction: "from_woocommerce",
+                product_id: newProduct.id,
+                woocommerce_product_id: wcp.id,
+                new_value: wcp.name,
+                status: "success",
+              });
+            } else if (error) {
+              await supabase.from("sync_log").insert({
+                sync_type: "import_products",
+                direction: "from_woocommerce",
+                woocommerce_product_id: wcp.id,
+                new_value: wcp.name,
+                status: "failed",
+                error_message: error.message,
+              });
+            }
+          } else if (wcp.type === "variable") {
+            // Variable product — fetch and import each variation
+            try {
+              let varPage = 1;
+              let allVariations: any[] = [];
+              while (true) {
+                const variations = await wcFetch(`products/${wcp.id}/variations`, {
+                  per_page: "100",
+                  page: String(varPage),
+                });
+                if (!variations?.length) break;
+                allVariations = allVariations.concat(variations);
+                if (variations.length < 100) break;
+                varPage++;
+              }
+
+              for (const variation of allVariations) {
+                const { data: existingVar } = await supabase
+                  .from("products")
+                  .select("id")
+                  .eq("woocommerce_product_id", variation.id)
+                  .eq("woocommerce_parent_id", wcp.id)
+                  .maybeSingle();
+
+                if (existingVar) {
+                  skipped++;
+                  continue;
+                }
+
+                // Build variation name from attributes
+                const attrs = (variation.attributes || [])
+                  .map((a: any) => a.option)
+                  .filter(Boolean)
+                  .join(", ");
+                const variationName = attrs
+                  ? `${wcp.name} — ${attrs}`
+                  : `${wcp.name} — #${variation.id}`;
+
+                const { data: newVar, error: varError } = await supabase
+                  .from("products")
+                  .insert({
+                    name: variationName,
+                    description: variation.description || wcp.short_description || wcp.description || null,
+                    current_stock: variation.stock_quantity || 0,
+                    woocommerce_product_id: variation.id,
+                    woocommerce_parent_id: wcp.id,
+                    selling_price: variation.price ? parseFloat(variation.price) : null,
+                    is_active: variation.status === "publish" && wcp.status === "publish",
+                  })
+                  .select("id")
+                  .single();
+
+                if (!varError && newVar) {
+                  imported++;
+                  await supabase.from("sync_log").insert({
+                    sync_type: "import_products",
+                    direction: "from_woocommerce",
+                    product_id: newVar.id,
+                    woocommerce_product_id: variation.id,
+                    new_value: variationName,
+                    status: "success",
+                  });
+                } else if (varError) {
+                  await supabase.from("sync_log").insert({
+                    sync_type: "import_products",
+                    direction: "from_woocommerce",
+                    woocommerce_product_id: variation.id,
+                    new_value: variationName,
+                    status: "failed",
+                    error_message: varError.message,
+                  });
+                }
+              }
+            } catch (e) {
+              await supabase.from("sync_log").insert({
+                sync_type: "import_products",
+                direction: "from_woocommerce",
+                woocommerce_product_id: wcp.id,
+                new_value: `${wcp.name} (variaties)`,
+                status: "failed",
+                error_message: e instanceof Error ? e.message : "Fout bij ophalen variaties",
+              });
+            }
           }
-
-          const { data: newProduct, error } = await supabase
-            .from("products")
-            .insert({
-              name: wcp.name,
-              description: wcp.short_description || wcp.description || null,
-              current_stock: wcp.stock_quantity || 0,
-              woocommerce_product_id: wcp.id,
-              selling_price: wcp.price ? parseFloat(wcp.price) : null,
-              is_active: wcp.status === "publish",
-            })
-            .select("id")
-            .single();
-
-          if (!error && newProduct) {
-            imported++;
-            await supabase.from("sync_log").insert({
-              sync_type: "import_products",
-              direction: "from_woocommerce",
-              product_id: newProduct.id,
-              woocommerce_product_id: wcp.id,
-              new_value: wcp.name,
-              status: "success",
-            });
-          } else if (error) {
-            await supabase.from("sync_log").insert({
-              sync_type: "import_products",
-              direction: "from_woocommerce",
-              woocommerce_product_id: wcp.id,
-              new_value: wcp.name,
-              status: "failed",
-              error_message: error.message,
-            });
-          }
+          // Skip other product types (grouped, external, etc.)
         }
 
         // Update last_import_at
@@ -241,7 +341,7 @@ Deno.serve(async (req) => {
       case "sync_stock": {
         const { data: products } = await supabase
           .from("products")
-          .select("id, woocommerce_product_id, current_stock")
+          .select("id, woocommerce_product_id, woocommerce_parent_id, current_stock")
           .not("woocommerce_product_id", "is", null);
 
         let synced = 0;
@@ -249,9 +349,11 @@ Deno.serve(async (req) => {
 
         for (const product of products ?? []) {
           try {
-            const wcp = await wcFetch(
-              `products/${product.woocommerce_product_id}`
+            const endpoint = getWcProductEndpoint(
+              product.woocommerce_product_id!,
+              product.woocommerce_parent_id
             );
+            const wcp = await wcFetch(endpoint);
             const wcStock = wcp.stock_quantity ?? 0;
 
             if (wcStock !== Number(product.current_stock)) {
@@ -346,7 +448,7 @@ Deno.serve(async (req) => {
       case "push_stock": {
         const { data: products } = await supabase
           .from("products")
-          .select("id, name, woocommerce_product_id, current_stock")
+          .select("id, name, woocommerce_product_id, woocommerce_parent_id, current_stock")
           .not("woocommerce_product_id", "is", null);
 
         let pushed = 0;
@@ -355,10 +457,13 @@ Deno.serve(async (req) => {
 
         for (const product of products ?? []) {
           try {
-            // Fetch current WC stock to compare
-            const wcp = await wcFetch(
-              `products/${product.woocommerce_product_id}`
+            const endpoint = getWcProductEndpoint(
+              product.woocommerce_product_id!,
+              product.woocommerce_parent_id
             );
+
+            // Fetch current WC stock to compare
+            const wcp = await wcFetch(endpoint);
             const wcStock = wcp.stock_quantity ?? 0;
             const localStock = Number(product.current_stock) || 0;
 
@@ -368,7 +473,7 @@ Deno.serve(async (req) => {
             }
 
             // Push local stock to WooCommerce
-            await wcPut(`products/${product.woocommerce_product_id}`, {
+            await wcPut(endpoint, {
               stock_quantity: localStock,
               manage_stock: true,
             });

@@ -247,6 +247,7 @@ export type Database = {
           unit: string | null
           updated_at: string | null
           woocommerce_product_id: number | null
+          woocommerce_parent_id: number | null
         }
         Insert: {
           cost_price?: number | null
@@ -268,6 +269,7 @@ export type Database = {
           unit?: string | null
           updated_at?: string | null
           woocommerce_product_id?: number | null
+          woocommerce_parent_id?: number | null
         }
         Update: {
           cost_price?: number | null
@@ -289,6 +291,7 @@ export type Database = {
           unit?: string | null
           updated_at?: string | null
           woocommerce_product_id?: number | null
+          woocommerce_parent_id?: number | null
         }
         Relationships: [
           {
@@ -565,6 +568,7 @@ export type Database = {
           unit: string | null
           updated_at: string | null
           woocommerce_product_id: number | null
+          woocommerce_parent_id: number | null
         }
         Insert: {
           cost_price?: number | null
@@ -587,6 +591,7 @@ export type Database = {
           unit?: string | null
           updated_at?: string | null
           woocommerce_product_id?: number | null
+          woocommerce_parent_id?: number | null
         }
         Update: {
           cost_price?: number | null
@@ -609,6 +614,7 @@ export type Database = {
           unit?: string | null
           updated_at?: string | null
           woocommerce_product_id?: number | null
+          woocommerce_parent_id?: number | null
         }
         Relationships: [
           {
