@@ -15,6 +15,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-wc-webhook-signature, x-wc-webhook-source, x-wc-webhook-topic, x-wc-webhook-resource, x-wc-webhook-event, x-wc-webhook-id, x-wc-webhook-delivery-id",
 };
 
+const ACCEPTED_ORDER_STATUSES = ["completed", "processing"];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -36,9 +38,13 @@ Deno.serve(async (req) => {
       .limit(1)
       .single();
 
-    // Verify webhook signature if secret is configured
+    // Verify webhook signature — mandatory if secret is configured
     const signature = req.headers.get("x-wc-webhook-signature");
-    if (wcSettings?.webhook_secret && signature) {
+    if (wcSettings?.webhook_secret) {
+      if (!signature) {
+        console.error("Missing webhook signature");
+        return new Response("Missing signature", { status: 401 });
+      }
       const expectedSig = await computeHmacSha256Base64(wcSettings.webhook_secret, payload);
       if (signature !== expectedSig) {
         console.error("Invalid webhook signature");
@@ -48,7 +54,7 @@ Deno.serve(async (req) => {
 
     const order = JSON.parse(payload);
 
-    // Ignore non-completed orders or ping events
+    // Ignore ping events or payloads without order data
     if (!order?.id || !order?.line_items) {
       return new Response("OK - ignored", {
         status: 200,
@@ -56,19 +62,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if already processed
-    const { data: existing } = await supabase
-      .from("sync_log")
-      .select("id")
-      .eq("woocommerce_order_id", order.id)
-      .eq("sync_type", "import_order")
-      .maybeSingle();
+    // Only process orders with accepted statuses
+    if (!ACCEPTED_ORDER_STATUSES.includes(order.status)) {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: `Order status '${order.status}' niet verwerkt` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    if (existing) {
-      return new Response("Already processed", {
-        status: 200,
-        headers: corsHeaders,
-      });
+    // Atomic deduplication: insert into processed_webhooks, skip if already exists
+    const { error: dedupeError } = await supabase
+      .from("processed_webhooks")
+      .insert({ woocommerce_order_id: order.id });
+
+    if (dedupeError) {
+      // Unique constraint violation = already processed
+      if (dedupeError.code === "23505") {
+        return new Response("Already processed", {
+          status: 200,
+          headers: corsHeaders,
+        });
+      }
+      // Other DB error — log and continue cautiously
+      console.error("Deduplication check error:", dedupeError.message);
     }
 
     let processed = 0;
@@ -151,9 +167,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("Webhook error:", error);
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Onbekende fout",
-      }),
+      JSON.stringify({ error: "Verwerking mislukt" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

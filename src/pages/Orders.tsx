@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useSuppliers } from '@/hooks/useSuppliers';
-import { useCreateMovement } from '@/hooks/useMovements';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { OrderDialog } from '@/components/OrderDialog';
@@ -26,11 +27,11 @@ import type { OrderWithDetails, Supplier } from '@/types/product';
 export default function Orders() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const qc = useQueryClient();
   const { data: suppliers } = useSuppliers();
   const [supplierFilter, setSupplierFilter] = useState('');
   const { data: orders, isLoading } = useOrders(supplierFilter || undefined);
   const updateStatus = useUpdateOrderStatus();
-  const createMovement = useCreateMovement();
 
   const [orderDialogSupplier, setOrderDialogSupplier] = useState<Supplier | null>(null);
   const [deliverTarget, setDeliverTarget] = useState<OrderWithDetails | null>(null);
@@ -47,24 +48,15 @@ export default function Orders() {
   const handleMarkDelivered = async () => {
     if (!deliverTarget) return;
     try {
-      await updateStatus.mutateAsync({
-        id: deliverTarget.id,
-        status: 'delivered',
-        actual_delivery_date: new Date().toISOString().split('T')[0],
+      const { error } = await supabase.rpc('deliver_order', {
+        p_order_id: deliverTarget.id,
+        p_user_email: user?.email ?? null,
       });
+      if (error) throw error;
 
-      // Auto-add stock via inventory movements
-      for (const item of deliverTarget.supplier_order_items) {
-        await createMovement.mutateAsync({
-          product_id: item.product_id,
-          movement_type: 'in',
-          source: 'supplier',
-          quantity: Number(item.quantity),
-          notes: `Levering bestelling ${deliverTarget.id.slice(0, 8)}`,
-          user_email: user?.email ?? undefined,
-        });
-      }
-
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+      qc.invalidateQueries({ queryKey: ['movements'] });
       toast({ title: 'Levering geregistreerd en voorraad bijgewerkt!' });
     } catch (err: any) {
       toast({ title: 'Fout', description: err.message, variant: 'destructive' });
