@@ -16,21 +16,21 @@ export interface PackagingSize {
 export interface Product {
   id: string;
   name: string;
-  description?: string;
-  origin?: string;
+  description?: string | null;
+  origin?: string | null;
   roast_level: RoastLevel;
-  flavor_notes?: string;
+  flavor_notes?: string | null;
   current_stock: number;
   unit: string;
   minimum_stock: number;
   critical_stock: number;
-  cost_price?: number;
-  selling_price?: number;
-  supplier_id?: string;
-  packaging_size_id?: string;
-  package_count?: number;
-  woocommerce_product_id?: number;
-  woocommerce_parent_id?: number;
+  cost_price?: number | null;
+  selling_price?: number | null;
+  supplier_id?: string | null;
+  packaging_size_id?: string | null;
+  package_count?: number | null;
+  woocommerce_product_id?: number | null;
+  woocommerce_parent_id?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -59,12 +59,12 @@ export interface MovementWithProduct extends InventoryMovement {
 export interface Supplier {
   id: string;
   name: string;
-  email?: string;
-  phone?: string;
-  contact_person?: string;
+  email?: string | null;
+  phone?: string | null;
+  contact_person?: string | null;
   average_delivery_days: number;
-  minimum_order_value?: number;
-  notes?: string;
+  minimum_order_value?: number | null;
+  notes?: string | null;
   is_active: boolean;
   created_at: string;
 }

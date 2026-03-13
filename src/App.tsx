@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
@@ -37,9 +38,10 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
@@ -50,9 +52,10 @@ const App = () => (
             <Route path="/instellingen" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/woocommerce" element={<ProtectedRoute><WooCommerce /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
     </TooltipProvider>
   </QueryClientProvider>
 );

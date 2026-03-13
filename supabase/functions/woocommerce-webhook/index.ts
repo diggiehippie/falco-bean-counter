@@ -9,15 +9,32 @@ async function computeHmacSha256Base64(secret: string, payload: string): Promise
   return btoa(String.fromCharCode(...new Uint8Array(sig)));
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-wc-webhook-signature, x-wc-webhook-source, x-wc-webhook-topic, x-wc-webhook-resource, x-wc-webhook-event, x-wc-webhook-id, x-wc-webhook-delivery-id",
-};
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const envOrigins = Deno.env.get("ALLOWED_ORIGINS");
+  const allowedHeaders = "authorization, x-client-info, apikey, content-type, x-wc-webhook-signature, x-wc-webhook-source, x-wc-webhook-topic, x-wc-webhook-resource, x-wc-webhook-event, x-wc-webhook-id, x-wc-webhook-delivery-id";
+
+  if (envOrigins) {
+    const allowed = envOrigins.split(",").map((s) => s.trim());
+    const isLocalDev = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    return {
+      "Access-Control-Allow-Origin": (allowed.includes(origin) || isLocalDev) ? origin : allowed[0],
+      "Access-Control-Allow-Headers": allowedHeaders,
+      "Vary": "Origin",
+    };
+  }
+
+  return {
+    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Headers": allowedHeaders,
+    "Vary": "Origin",
+  };
+}
 
 const ACCEPTED_ORDER_STATUSES = ["completed", "processing"];
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

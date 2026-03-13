@@ -34,11 +34,17 @@ export function useWooCommerceSettings() {
     queryFn: async (): Promise<WooCommerceSettings | null> => {
       const { data, error } = await supabase
         .from('woocommerce_settings')
-        .select('*')
+        .select('id, store_url, auto_import_enabled, last_import_at, is_active, created_at')
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data as unknown as WooCommerceSettings | null;
+      if (!data) return null;
+      return {
+        ...data,
+        consumer_key: '',
+        consumer_secret: '',
+        webhook_secret: '',
+      } as unknown as WooCommerceSettings;
     },
   });
 }
@@ -46,7 +52,7 @@ export function useWooCommerceSettings() {
 export function useSaveWooCommerceSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (settings: Partial<WooCommerceSettings> & { store_url: string; consumer_key: string; consumer_secret: string }) => {
+    mutationFn: async (settings: Partial<WooCommerceSettings> & { store_url: string }) => {
       // Check if settings exist
       const { data: existing } = await supabase
         .from('woocommerce_settings')
@@ -134,7 +140,7 @@ async function callWcSync(action: string, params: Record<string, unknown> = {}) 
 
 export function useTestWcConnection() {
   return useMutation({
-    mutationFn: async (params: { store_url: string; consumer_key: string; consumer_secret: string }) =>
+    mutationFn: async (params: { store_url: string; consumer_key?: string; consumer_secret?: string }) =>
       callWcSync('test_connection', params),
   });
 }

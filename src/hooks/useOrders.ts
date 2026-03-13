@@ -39,7 +39,7 @@ export function useCreateOrder() {
         .single();
       if (orderError) throw orderError;
 
-      const orderItems = items.map((item) => ({ ...item, order_id: (order as any).id }));
+      const orderItems = items.map((item) => ({ ...item, order_id: order!.id }));
       const { error: itemsError } = await supabase
         .from('supplier_order_items')
         .insert(orderItems);

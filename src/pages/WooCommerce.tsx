@@ -83,58 +83,51 @@ export default function WooCommercePage() {
   const [matchResult, setMatchResult] = useState<{ matched: any[]; unmatched: string[] } | null>(null);
   const [logFilter, setLogFilter] = useState<string>('all');
 
-  // Initialize form from settings
-  useState(() => {
-    if (wcSettings) {
-      setStoreUrl(wcSettings.store_url);
-      setConsumerKey(wcSettings.consumer_key);
-      setConsumerSecret(wcSettings.consumer_secret);
-      setWebhookSecret(wcSettings.webhook_secret ?? '');
-      setConnectionStatus('success');
-    }
-  });
-
-  // Update form when settings load
+  // Update form when settings load (credentials are not fetched for security)
   const initDone = useState(false);
   if (!initDone[0] && wcSettings) {
     setStoreUrl(wcSettings.store_url);
-    setConsumerKey(wcSettings.consumer_key);
-    setConsumerSecret(wcSettings.consumer_secret);
-    setWebhookSecret(wcSettings.webhook_secret ?? '');
     setConnectionStatus('success');
     initDone[1](true);
   }
+
+  const hasStoredCredentials = !!wcSettings?.id;
 
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/woocommerce-webhook`;
 
   const handleTestConnection = async () => {
     try {
-      const result = await testConnection.mutateAsync({
-        store_url: storeUrl,
-        consumer_key: consumerKey,
-        consumer_secret: consumerSecret,
-      });
+      const params: { store_url: string; consumer_key?: string; consumer_secret?: string } = { store_url: storeUrl };
+      if (consumerKey) params.consumer_key = consumerKey;
+      if (consumerSecret) params.consumer_secret = consumerSecret;
+      const result = await testConnection.mutateAsync(params);
       setConnectionStatus('success');
-      toast({ title: `✅ Verbonden met ${result.site_url}` });
+      toast({ title: `Verbonden met ${result.site_url}` });
     } catch (err: any) {
       setConnectionStatus('error');
-      toast({ title: '❌ Verbinding mislukt', description: err.message, variant: 'destructive' });
+      toast({ title: 'Verbinding mislukt', description: err.message, variant: 'destructive' });
     }
   };
 
   const handleSave = async () => {
-    if (!storeUrl || !consumerKey || !consumerSecret) {
+    if (!storeUrl) {
+      toast({ title: 'Vul de winkel URL in', variant: 'destructive' });
+      return;
+    }
+    if (!hasStoredCredentials && (!consumerKey || !consumerSecret)) {
       toast({ title: 'Vul alle verplichte velden in', variant: 'destructive' });
       return;
     }
     try {
-      await saveSettings.mutateAsync({
-        store_url: storeUrl,
-        consumer_key: consumerKey,
-        consumer_secret: consumerSecret,
-        webhook_secret: webhookSecret || undefined,
-      });
-      toast({ title: '✅ Instellingen opgeslagen!' });
+      const payload: { store_url: string; consumer_key?: string; consumer_secret?: string; webhook_secret?: string } = { store_url: storeUrl };
+      if (consumerKey) payload.consumer_key = consumerKey;
+      if (consumerSecret) payload.consumer_secret = consumerSecret;
+      if (webhookSecret) payload.webhook_secret = webhookSecret;
+      await saveSettings.mutateAsync(payload);
+      toast({ title: 'Instellingen opgeslagen!' });
+      setConsumerKey('');
+      setConsumerSecret('');
+      setWebhookSecret('');
     } catch (err: any) {
       toast({ title: 'Fout', description: err.message, variant: 'destructive' });
     }
@@ -325,25 +318,31 @@ export default function WooCommercePage() {
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="consumer_key">Consumer Key *</Label>
+            <Label htmlFor="consumer_key">Consumer Key {hasStoredCredentials ? '' : '*'}</Label>
             <Input
               id="consumer_key"
               type={showKeys ? 'text' : 'password'}
-              placeholder="ck_..."
+              placeholder={hasStoredCredentials ? 'Opgeslagen — laat leeg om te behouden' : 'ck_...'}
               value={consumerKey}
               onChange={(e) => setConsumerKey(e.target.value)}
             />
+            {hasStoredCredentials && !consumerKey && (
+              <p className="text-xs text-success flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Opgeslagen</p>
+            )}
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="consumer_secret">Consumer Secret *</Label>
+            <Label htmlFor="consumer_secret">Consumer Secret {hasStoredCredentials ? '' : '*'}</Label>
             <Input
               id="consumer_secret"
               type={showKeys ? 'text' : 'password'}
-              placeholder="cs_..."
+              placeholder={hasStoredCredentials ? 'Opgeslagen — laat leeg om te behouden' : 'cs_...'}
               value={consumerSecret}
               onChange={(e) => setConsumerSecret(e.target.value)}
             />
+            {hasStoredCredentials && !consumerSecret && (
+              <p className="text-xs text-success flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Opgeslagen</p>
+            )}
             <div className="flex items-center gap-2">
               <button onClick={() => setShowKeys(!showKeys)} className="text-xs text-primary hover:underline">
                 {showKeys ? 'Verberg' : 'Toon'} keys
@@ -356,7 +355,7 @@ export default function WooCommercePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={handleTestConnection} disabled={testConnection.isPending || !storeUrl || !consumerKey || !consumerSecret}>
+            <Button variant="outline" onClick={handleTestConnection} disabled={testConnection.isPending || !storeUrl || (!hasStoredCredentials && (!consumerKey || !consumerSecret))}>
               {testConnection.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Plug className="h-4 w-4 mr-2" />}
               Test Verbinding
             </Button>
@@ -364,7 +363,7 @@ export default function WooCommercePage() {
             {connectionStatus === 'error' && <span className="text-sm text-destructive flex items-center gap-1"><XCircle className="h-4 w-4" /> Mislukt</span>}
           </div>
 
-          <Button onClick={handleSave} disabled={saveSettings.isPending || !storeUrl || !consumerKey || !consumerSecret}>
+          <Button onClick={handleSave} disabled={saveSettings.isPending || !storeUrl || (!hasStoredCredentials && (!consumerKey || !consumerSecret))}>
             {saveSettings.isPending ? 'Opslaan...' : 'Opslaan'}
           </Button>
 

@@ -61,10 +61,10 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: Props) {
 
     try {
       if (isEditing) {
-        await updateSupplier.mutateAsync({ id: supplier.id, ...payload } as any);
+        await updateSupplier.mutateAsync({ id: supplier.id, ...payload });
         toast({ title: 'Leverancier bijgewerkt!' });
       } else {
-        await createSupplier.mutateAsync(payload as any);
+        await createSupplier.mutateAsync(payload);
         toast({ title: 'Leverancier succesvol toegevoegd!' });
       }
       reset();

@@ -102,7 +102,7 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
         await updateProduct.mutateAsync({ id: product.id, ...payload });
         toast({ title: 'Product bijgewerkt' });
       } else {
-        await createProduct.mutateAsync(payload as any);
+        await createProduct.mutateAsync(payload);
         toast({ title: 'Product toegevoegd' });
       }
       reset();
@@ -137,7 +137,7 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
             </div>
             <div className="space-y-1">
               <Label>Branding *</Label>
-              <Select value={watch('roast_level')} onValueChange={(v) => setValue('roast_level', v as any)}>
+              <Select value={watch('roast_level')} onValueChange={(v) => setValue('roast_level', v as FormValues['roast_level'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="light">Light</SelectItem>

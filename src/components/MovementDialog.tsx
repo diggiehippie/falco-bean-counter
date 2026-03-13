@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useProducts } from '@/hooks/useProducts';
 import { useCreateMovement } from '@/hooks/useMovements';
-import type { MovementType, StockStatusView } from '@/types/product';
+import type { MovementType, MovementSource, StockStatusView } from '@/types/product';
 
 const ADJUSTMENT_REASONS = [
   { value: 'damaged', label: 'Beschadigd' },
@@ -77,7 +77,7 @@ export function MovementDialog({ open, onOpenChange, movementType, preselectedPr
 
   const onSubmit = async (values: FormValues) => {
     const source = movementType === 'adjustment'
-      ? (values.reason === 'other' || values.reason === 'loss' || values.reason === 'correction' ? 'other' : values.reason as any)
+      ? (values.reason === 'other' || values.reason === 'loss' || values.reason === 'correction' ? 'other' : values.reason as MovementSource)
       : SOURCE_MAP[movementType];
 
     try {

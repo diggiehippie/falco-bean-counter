@@ -1,12 +1,29 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const envOrigins = Deno.env.get("ALLOWED_ORIGINS");
+  const allowedHeaders = "authorization, x-client-info, apikey, content-type";
+
+  if (envOrigins) {
+    const allowed = envOrigins.split(",").map((s) => s.trim());
+    const isLocalDev = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    return {
+      "Access-Control-Allow-Origin": (allowed.includes(origin) || isLocalDev) ? origin : allowed[0],
+      "Access-Control-Allow-Headers": allowedHeaders,
+      "Vary": "Origin",
+    };
+  }
+
+  return {
+    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Headers": allowedHeaders,
+    "Vary": "Origin",
+  };
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -126,7 +143,8 @@ Deno.serve(async (req) => {
     const { data: products } = await supabase
       .from("products")
       .select("id, name, woocommerce_product_id, woocommerce_parent_id, current_stock")
-      .not("woocommerce_product_id", "is", null);
+      .not("woocommerce_product_id", "is", null)
+      .limit(500);
 
     let pullCount = 0;
     let pushCount = 0;

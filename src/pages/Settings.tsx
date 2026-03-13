@@ -107,7 +107,7 @@ export default function Settings() {
 
   const handleUpdate = async (id: string, updates: Partial<AlertSetting>) => {
     try {
-      await updateSetting.mutateAsync({ id, ...updates } as any);
+      await updateSetting.mutateAsync({ id, ...updates });
       toast({ title: 'Instellingen succesvol opgeslagen!' });
     } catch (err: any) {
       toast({ title: 'Fout', description: err.message, variant: 'destructive' });

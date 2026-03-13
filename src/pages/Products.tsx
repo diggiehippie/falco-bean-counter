@@ -99,7 +99,7 @@ export default function Products() {
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell className="text-muted-foreground">{p.origin ?? '—'}</TableCell>
                     <TableCell className="capitalize">{p.roast_level}</TableCell>
-                    <TableCell className="text-right">{(p as any).package_count ?? '—'}</TableCell>
+                    <TableCell className="text-right">{p.package_count ?? '—'}</TableCell>
                     <TableCell className="text-right">{Number(p.current_stock).toFixed(1)}</TableCell>
                     <TableCell><StockStatusBadge status={p.stock_status} /></TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
